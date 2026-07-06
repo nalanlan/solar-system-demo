@@ -1,0 +1,8 @@
+import { createApp } from 'vue'
+import './styles/tailwind.css'
+import './styles/index.css'
+import './styles/solar.css'
+import App from './App.vue'
+import router from './router'
+
+createApp(App).use(router).mount('#app')
