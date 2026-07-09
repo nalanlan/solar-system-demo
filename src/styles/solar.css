@@ -2456,3 +2456,79 @@
     top: 4.3rem;
   }
 }
+
+.gesture-layer .gesture-permission {
+  position: absolute;
+  right: clamp(18px, 4vw, 54px);
+  left: auto;
+  top: clamp(82px, 10vh, 120px);
+  width: min(420px, calc(100vw - 32px));
+}
+
+.gesture-layer .gesture-hud {
+  position: absolute;
+  right: clamp(16px, 3vw, 30px);
+  left: auto;
+  top: clamp(80px, 9vh, 110px);
+  width: min(310px, calc(100vw - 32px));
+}
+
+.gesture-layer .camera-preview {
+  position: absolute;
+  right: clamp(16px, 3vw, 30px);
+  left: auto;
+  top: clamp(214px, 24vh, 250px);
+}
+
+.gesture-layer .gesture-tutorial {
+  position: fixed;
+  left: auto;
+  right: clamp(18px, 4vw, 54px);
+  bottom: clamp(18px, 3vw, 34px);
+  top: auto;
+  width: min(520px, calc(100vw - 32px));
+}
+
+.gesture-layer.compact .gesture-tutorial {
+  position: absolute;
+  left: clamp(16px, 2vw, 24px);
+  right: auto;
+  bottom: auto;
+  top: clamp(68px, 10vh, 96px);
+  width: min(360px, calc(100vw - 32px));
+}
+
+.gesture-layer.compact .gesture-guide-grid {
+  grid-template-columns: 1fr;
+  gap: 6px;
+}
+
+.gesture-layer.compact .gesture-guide-grid span {
+  min-height: 30px;
+  padding: 6px 8px;
+  font-size: 12px;
+}
+
+@media (max-width: 760px) {
+  .gesture-layer .gesture-permission,
+  .gesture-layer .gesture-hud {
+    left: 14px;
+    right: 14px;
+    width: auto;
+  }
+
+  .gesture-layer .camera-preview {
+    right: 14px;
+    width: 136px;
+    top: 190px;
+  }
+
+  .gesture-layer .gesture-tutorial,
+  .gesture-layer.compact .gesture-tutorial {
+    left: 14px;
+    right: 14px;
+    width: auto;
+    bottom: 14px;
+    top: auto;
+  }
+}

@@ -427,7 +427,7 @@ onBeforeUnmount(() => {
       <span>{{ gestureName }}</span>
     </div>
 
-    <div v-if="showTutorial && mode !== 'off'" class="gesture-tutorial scan-panel">
+    <div v-if="showTutorial && mode !== 'off' && mode !== 'permission'" class="gesture-tutorial scan-panel">
       <button class="gesture-close" type="button" aria-label="关闭手势教学" @click="dismissTutorial">
         <X :size="16" />
       </button>
