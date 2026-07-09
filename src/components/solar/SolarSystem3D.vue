@@ -21,6 +21,22 @@ type PlanetConfig = {
   startAngle: number
 }
 
+type GestureHit = {
+  id: PlanetId | null
+  world: THREE.Vector3
+}
+
+type ParticleBurst = {
+  points: THREE.Points
+  geometry: THREE.BufferGeometry
+  material: THREE.PointsMaterial
+  positions: Float32Array
+  velocities: Float32Array
+  age: number
+  duration: number
+  attachedTo?: PlanetId
+}
+
 const props = withDefaults(
   defineProps<{
     mode?: 'hero' | 'map' | 'detail'
@@ -84,6 +100,7 @@ let orbitClock = 0
 const planetMeshes = new Map<PlanetId, THREE.Mesh>()
 const orbitLines = new Map<PlanetId, THREE.LineLoop>()
 const planetConfigs = new Map<PlanetId, PlanetConfig>()
+const particleBursts: ParticleBurst[] = []
 
 const isMobile = () => window.matchMedia('(max-width: 760px), (prefers-reduced-motion: reduce)').matches
 const sceneCenterX = () => (props.mode === 'hero' ? 1.4 : 0)
@@ -405,6 +422,91 @@ function updatePointer(event: PointerEvent) {
   pointerTarget.y = pointer.y
 }
 
+function screenToStagePointer(screenX: number, screenY: number) {
+  if (!stageRef.value) return null
+  const bounds = stageRef.value.getBoundingClientRect()
+  const x = THREE.MathUtils.clamp((screenX - bounds.left) / Math.max(bounds.width, 1), 0, 1)
+  const y = THREE.MathUtils.clamp((screenY - bounds.top) / Math.max(bounds.height, 1), 0, 1)
+  pointer.x = x * 2 - 1
+  pointer.y = -(y * 2 - 1)
+  pointerTarget.x = pointer.x
+  pointerTarget.y = pointer.y
+  return { x: pointer.x, y: pointer.y }
+}
+
+function hitFromScreen(screenX: number, screenY: number): GestureHit | null {
+  if (!camera || !raycaster) return null
+  const nextPointer = screenToStagePointer(screenX, screenY)
+  if (!nextPointer) return null
+
+  raycaster.setFromCamera(pointer, camera)
+  const hits = raycaster.intersectObjects([...planetMeshes.values()], true)
+  const hit = hits.find(item => item.object.userData.planetId || item.object.parent?.userData.planetId)
+  const id = (hit?.object.userData.planetId || hit?.object.parent?.userData.planetId || null) as PlanetId | null
+
+  if (hit) {
+    return { id, world: hit.point.clone() }
+  }
+
+  const fallback = raycaster.ray.origin.clone().add(raycaster.ray.direction.clone().multiplyScalar(props.mode === 'detail' ? 4.2 : 7.4))
+  return { id: null, world: fallback }
+}
+
+function spawnParticleBurst(position: THREE.Vector3, type: 'pinch' | 'fist' | 'focus' = 'pinch', attachedTo?: PlanetId | null) {
+  if (!scene) return
+  const count = isMobile() ? (type === 'fist' ? 72 : 34) : type === 'fist' ? 210 : type === 'focus' ? 130 : 70
+  const positions = new Float32Array(count * 3)
+  const velocities = new Float32Array(count * 3)
+  const colors = new Float32Array(count * 3)
+  const palette = [
+    new THREE.Color(0x22d3ee),
+    new THREE.Color(0x8b5cf6),
+    new THREE.Color(0xfacc15)
+  ]
+
+  for (let index = 0; index < count; index += 1) {
+    const angle = Math.random() * Math.PI * 2
+    const z = Math.random() * 2 - 1
+    const radial = Math.sqrt(Math.max(0, 1 - z * z))
+    const speed = type === 'fist' ? 0.055 + Math.random() * 0.105 : 0.02 + Math.random() * 0.055
+    const ringBias = type === 'focus' ? 0.3 : 1
+    positions[index * 3] = position.x
+    positions[index * 3 + 1] = position.y
+    positions[index * 3 + 2] = position.z
+    velocities[index * 3] = Math.cos(angle) * radial * speed
+    velocities[index * 3 + 1] = z * speed * ringBias
+    velocities[index * 3 + 2] = Math.sin(angle) * radial * speed
+    const color = palette[index % palette.length]
+    colors[index * 3] = color.r
+    colors[index * 3 + 1] = color.g
+    colors[index * 3 + 2] = color.b
+  }
+
+  const geometry = new THREE.BufferGeometry()
+  geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3))
+  geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3))
+  const material = new THREE.PointsMaterial({
+    size: type === 'fist' ? 0.075 : 0.052,
+    vertexColors: true,
+    transparent: true,
+    opacity: type === 'fist' ? 0.96 : 0.82,
+    depthWrite: false,
+    blending: THREE.AdditiveBlending
+  })
+  const points = new THREE.Points(geometry, material)
+  scene.add(points)
+  particleBursts.push({
+    points,
+    geometry,
+    material,
+    positions,
+    velocities,
+    age: 0,
+    duration: type === 'fist' ? 1.25 : 0.72,
+    attachedTo: attachedTo || undefined
+  })
+}
+
 function updateHover(event: PointerEvent) {
   updatePointer(event)
   if (!camera || !raycaster || !props.interactive) return
@@ -487,6 +589,94 @@ function focusPlanet(id: PlanetId) {
   })
 }
 
+function gestureMove(screenX: number, screenY: number) {
+  const hit = hitFromScreen(screenX, screenY)
+  const nextId = hit?.id || null
+  if (nextId !== hoveredId.value) {
+    hoveredId.value = nextId
+    emit('hover', nextId)
+  }
+  return nextId
+}
+
+function gesturePinch(screenX: number, screenY: number) {
+  const hit = hitFromScreen(screenX, screenY)
+  if (!hit) return null
+  spawnParticleBurst(hit.world, hit.id ? 'focus' : 'pinch', hit.id)
+  if (hit.id) {
+    hoveredId.value = hit.id
+    emit('hover', hit.id)
+    focusPlanet(hit.id)
+    emit('select', hit.id)
+  }
+  return hit.id
+}
+
+function gestureBurst(screenX: number, screenY: number) {
+  const hit = hitFromScreen(screenX, screenY)
+  if (!hit) return null
+  spawnParticleBurst(hit.world, 'fist', hit.id)
+  if (hit.id) {
+    const orbit = orbitLines.get(hit.id)
+    if (orbit) {
+      const material = orbit.material as THREE.LineBasicMaterial
+      material.opacity = 0.92
+    }
+  } else if (props.mode === 'map') {
+    emit('reset')
+    setCameraPreset()
+  }
+  return hit.id
+}
+
+function gestureZoom(delta: number) {
+  if (props.mode === 'detail') {
+    targetCameraPosition.z = THREE.MathUtils.clamp(targetCameraPosition.z - delta * 0.014, 3.4, 7.2)
+    return
+  }
+  targetCameraPosition.z = THREE.MathUtils.clamp(targetCameraPosition.z - delta * 0.018, 5.4, 18)
+}
+
+function gestureRotate(deltaX: number) {
+  if (!solarRoot) return
+  solarRoot.rotation.y += deltaX * 0.0035
+}
+
+function gestureFocus(id: PlanetId) {
+  hoveredId.value = id
+  emit('hover', id)
+  focusPlanet(id)
+}
+
+function updateParticleBursts(delta: number) {
+  for (let index = particleBursts.length - 1; index >= 0; index -= 1) {
+    const burst = particleBursts[index]
+    burst.age += delta
+    const progress = Math.min(burst.age / burst.duration, 1)
+    const drag = 1 - progress * 0.035
+
+    for (let pointIndex = 0; pointIndex < burst.positions.length / 3; pointIndex += 1) {
+      const offset = pointIndex * 3
+      burst.positions[offset] += burst.velocities[offset]
+      burst.positions[offset + 1] += burst.velocities[offset + 1]
+      burst.positions[offset + 2] += burst.velocities[offset + 2]
+      burst.velocities[offset] *= drag
+      burst.velocities[offset + 1] *= drag
+      burst.velocities[offset + 2] *= drag
+    }
+
+    burst.material.opacity = Math.max(0, 1 - progress)
+    burst.geometry.attributes.position.needsUpdate = true
+
+    if (progress >= 1) {
+      scene?.remove(burst.points)
+      burst.geometry.dispose()
+      burst.material.dispose()
+      particleBursts.splice(index, 1)
+    }
+  }
+}
+
 function updateLabels() {
   if (!stageRef.value || !camera) return
   const width = stageRef.value.clientWidth
@@ -563,6 +753,8 @@ function animate() {
     }
   })
 
+  updateParticleBursts(delta)
+
   updateLabels()
   renderer.render(scene, camera)
   animationId = requestAnimationFrame(animate)
@@ -604,6 +796,11 @@ function cleanupScene() {
   planetMeshes.clear()
   orbitLines.clear()
   planetConfigs.clear()
+  particleBursts.splice(0).forEach(burst => {
+    scene?.remove(burst.points)
+    burst.geometry.dispose()
+    burst.material.dispose()
+  })
   labels.value = []
 }
 
@@ -618,6 +815,16 @@ watch(() => props.selectedId, id => id && focusPlanet(id))
 watch(() => props.showOrbits, setOrbitsVisible)
 watch(() => props.scaleMode, rebuildScene)
 watch(() => props.focusId, () => props.mode === 'detail' && rebuildScene())
+
+defineExpose({
+  gestureMove,
+  gesturePinch,
+  gestureBurst,
+  gestureZoom,
+  gestureRotate,
+  gestureFocus,
+  resetCamera: setCameraPreset
+})
 
 onBeforeUnmount(cleanupScene)
 </script>

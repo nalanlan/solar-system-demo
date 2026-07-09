@@ -1,14 +1,18 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import { useRoute } from 'vue-router'
+import { computed, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { ArrowLeft, ChevronRight, Compass, Gauge, Route, Satellite, Sparkles } from 'lucide-vue-next'
+import GestureControlOverlay from '@/components/solar/GestureControlOverlay.vue'
 import SolarSystem3D from '@/components/solar/SolarSystem3D.vue'
 import { planetById, planets } from '@/data/solar'
 
 const route = useRoute()
+const router = useRouter()
+const solarScene = ref<InstanceType<typeof SolarSystem3D> | null>(null)
 const planet = computed(() => planetById(String(route.params.id || 'earth')))
 const planetIndex = computed(() => planets.findIndex(item => item.id === planet.value.id))
 const nextPlanet = computed(() => planets[(planetIndex.value + 1) % planets.length])
+const prevPlanet = computed(() => planets[(planetIndex.value - 1 + planets.length) % planets.length])
 
 const atmosphereLabel = computed(() => {
   const map: Record<string, string> = {
@@ -23,12 +27,28 @@ const atmosphereLabel = computed(() => {
   }
   return map[planet.value.id]
 })
+
+function goPlanet(direction: 1 | -1) {
+  const target = direction > 0 ? nextPlanet.value : prevPlanet.value
+  router.push(`/solar/planet/${target.id}`)
+}
 </script>
 
 <template>
   <main class="solar-page detail-page" :style="{ '--planet-accent': planet.color }">
     <section class="detail-hero detail-hero-3d">
-      <SolarSystem3D mode="detail" :focus-id="planet.id" :selected-id="planet.id" :interactive="false" />
+      <SolarSystem3D ref="solarScene" mode="detail" :focus-id="planet.id" :selected-id="planet.id" :interactive="false" />
+      <GestureControlOverlay
+        compact
+        :selected-name="planet.name"
+        @move="point => solarScene?.gestureMove(point.x, point.y)"
+        @pinch="point => solarScene?.gestureBurst(point.x, point.y)"
+        @fist="point => solarScene?.gestureBurst(point.x, point.y)"
+        @swipe-prev="goPlanet(-1)"
+        @swipe-next="goPlanet(1)"
+        @zoom="delta => solarScene?.gestureZoom(delta)"
+        @rotate="delta => solarScene?.gestureRotate(delta)"
+      />
 
       <RouterLink class="back-link" to="/solar/planets">
         <ArrowLeft :size="18" />

@@ -12,6 +12,7 @@ import {
   Play,
   Radar
 } from 'lucide-vue-next'
+import GestureControlOverlay from '@/components/solar/GestureControlOverlay.vue'
 import SolarSystem3D from '@/components/solar/SolarSystem3D.vue'
 import { planets, type PlanetId } from '@/data/solar'
 
@@ -23,6 +24,7 @@ const showOrbits = ref(true)
 const showLabels = ref(true)
 const scaleMode = ref<'demo' | 'real'>('demo')
 const autoCruise = ref(false)
+const solarScene = ref<InstanceType<typeof SolarSystem3D> | null>(null)
 
 const selectedPlanet = computed(() => planets.find(planet => planet.id === selectedId.value) || planets[2])
 const selectedIndex = computed(() => planets.findIndex(planet => planet.id === selectedId.value))
@@ -30,6 +32,21 @@ const selectedIndex = computed(() => planets.findIndex(planet => planet.id === s
 function toggleSpeed(next: number) {
   speedMultiplier.value = next
   paused.value = next === 0
+}
+
+function focusSelected(id: PlanetId) {
+  selectedId.value = id
+  solarScene.value?.gestureFocus(id)
+}
+
+function shiftPlanet(direction: 1 | -1) {
+  const next = planets[(selectedIndex.value + direction + planets.length) % planets.length]
+  focusSelected(next.id)
+}
+
+function handleGesturePinch(point: { x: number; y: number }) {
+  const id = solarScene.value?.gesturePinch(point.x, point.y)
+  if (id) selectedId.value = id
 }
 </script>
 
@@ -57,6 +74,7 @@ function toggleSpeed(next: number) {
     <section class="overview-grid">
       <div v-if="viewMode === 'orbit'" class="orbit-stage orbit-stage-3d hud-corners">
         <SolarSystem3D
+          ref="solarScene"
           mode="map"
           :selected-id="selectedId"
           :speed-multiplier="speedMultiplier"
@@ -67,6 +85,17 @@ function toggleSpeed(next: number) {
           :auto-cruise="autoCruise"
           @select="id => (selectedId = id)"
           @reset="selectedId = 'earth'"
+        />
+        <GestureControlOverlay
+          compact
+          :selected-name="selectedPlanet.name"
+          @move="point => solarScene?.gestureMove(point.x, point.y)"
+          @pinch="handleGesturePinch"
+          @fist="point => solarScene?.gestureBurst(point.x, point.y)"
+          @swipe-prev="shiftPlanet(-1)"
+          @swipe-next="shiftPlanet(1)"
+          @zoom="delta => solarScene?.gestureZoom(delta)"
+          @rotate="delta => solarScene?.gestureRotate(delta)"
         />
 
         <div class="scale-note">
@@ -113,7 +142,7 @@ function toggleSpeed(next: number) {
             :class="{ active: selectedId === planet.id }"
             :style="{ '--accent': planet.color }"
             type="button"
-            @click="selectedId = planet.id"
+            @click="focusSelected(planet.id)"
           >
             {{ planet.name }}
           </button>

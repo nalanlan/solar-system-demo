@@ -9,6 +9,316 @@
   overflow-x: hidden;
 }
 
+.gesture-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 8;
+  pointer-events: none;
+}
+
+.gesture-layer.compact {
+  z-index: 12;
+}
+
+.gesture-open-button {
+  position: absolute;
+  right: clamp(18px, 3vw, 34px);
+  top: clamp(82px, 10vh, 116px);
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 42px;
+  padding: 0 18px;
+  border: 1px solid rgba(34, 211, 238, 0.45);
+  border-radius: 999px;
+  color: #e0faff;
+  background:
+    linear-gradient(135deg, rgba(34, 211, 238, 0.18), rgba(139, 92, 246, 0.2)),
+    rgba(15, 23, 42, 0.5);
+  box-shadow: 0 0 28px rgba(34, 211, 238, 0.22);
+  backdrop-filter: blur(16px);
+  pointer-events: auto;
+}
+
+.gesture-open-button:hover {
+  border-color: rgba(250, 204, 21, 0.65);
+  box-shadow: 0 0 36px rgba(34, 211, 238, 0.35), 0 0 18px rgba(250, 204, 21, 0.18);
+}
+
+.gesture-permission,
+.gesture-tutorial,
+.gesture-hud,
+.camera-preview {
+  pointer-events: auto;
+}
+
+.gesture-permission {
+  position: absolute;
+  right: clamp(18px, 4vw, 54px);
+  top: clamp(82px, 10vh, 120px);
+  width: min(420px, calc(100vw - 32px));
+  padding: 22px;
+  border-radius: 8px;
+  color: #e5f6ff;
+  z-index: 3;
+}
+
+.gesture-permission h3 {
+  margin: 8px 0 10px;
+  font-size: 24px;
+  letter-spacing: 0;
+}
+
+.gesture-permission p {
+  margin: 0;
+  color: rgba(226, 241, 255, 0.78);
+  line-height: 1.75;
+}
+
+.gesture-close {
+  position: absolute;
+  right: 12px;
+  top: 12px;
+  display: grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  border-radius: 50%;
+  color: #dff7ff;
+  background: rgba(15, 23, 42, 0.45);
+}
+
+.gesture-privacy-list {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 18px 0;
+}
+
+.gesture-privacy-list span,
+.gesture-guide-grid span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 8px 10px;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 6px;
+  color: rgba(226, 241, 255, 0.86);
+  background: rgba(15, 23, 42, 0.38);
+}
+
+.gesture-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.gesture-hud {
+  position: absolute;
+  right: clamp(16px, 3vw, 30px);
+  top: clamp(80px, 9vh, 110px);
+  width: min(310px, calc(100vw - 32px));
+  padding: 14px;
+  border-radius: 8px;
+}
+
+.gesture-hud-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+  color: rgba(34, 211, 238, 0.9);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+}
+
+.gesture-hud-head button {
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  border-radius: 999px;
+  color: #e5f6ff;
+  background: rgba(15, 23, 42, 0.52);
+}
+
+.gesture-hud strong {
+  display: block;
+  color: #ffffff;
+  font-size: 18px;
+}
+
+.gesture-hud small {
+  display: block;
+  margin-top: 5px;
+  color: rgba(226, 241, 255, 0.68);
+}
+
+.gesture-signal {
+  height: 3px;
+  margin-top: 12px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.18);
+}
+
+.gesture-signal span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #22d3ee, #8b5cf6, #facc15);
+  box-shadow: 0 0 16px rgba(34, 211, 238, 0.55);
+}
+
+.camera-preview {
+  position: absolute;
+  right: clamp(16px, 3vw, 30px);
+  top: clamp(214px, 24vh, 250px);
+  width: 176px;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  border: 1px solid rgba(34, 211, 238, 0.38);
+  border-radius: 8px;
+  background: rgba(2, 6, 23, 0.75);
+  box-shadow: 0 0 28px rgba(34, 211, 238, 0.2);
+}
+
+.camera-preview video,
+.camera-preview canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scaleX(-1);
+}
+
+.camera-preview span {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 8px;
+  padding: 5px 7px;
+  border-radius: 999px;
+  color: #e8fbff;
+  font-size: 11px;
+  text-align: center;
+  background: rgba(2, 6, 23, 0.72);
+}
+
+.gesture-tutorial {
+  position: absolute;
+  left: clamp(16px, 3vw, 30px);
+  bottom: clamp(18px, 3vw, 34px);
+  width: min(520px, calc(100vw - 32px));
+  padding: 16px;
+  border-radius: 8px;
+}
+
+.gesture-guide-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.gesture-cursor {
+  position: fixed;
+  z-index: 70;
+  display: grid;
+  width: 32px;
+  height: 32px;
+  place-items: center;
+  border: 1px solid rgba(34, 211, 238, 0.78);
+  border-radius: 50%;
+  color: #dffaff;
+  background: radial-gradient(circle, rgba(34, 211, 238, 0.42), rgba(139, 92, 246, 0.12) 64%, transparent);
+  box-shadow: 0 0 24px rgba(34, 211, 238, 0.55);
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.gesture-cursor::after {
+  content: "";
+  position: absolute;
+  inset: -10px;
+  border: 1px solid rgba(34, 211, 238, 0.22);
+  border-radius: inherit;
+  animation: gesture-pulse 1.2s ease-out infinite;
+}
+
+.gesture-cursor.pulse::after {
+  border-color: rgba(250, 204, 21, 0.5);
+  animation-duration: 0.52s;
+}
+
+.gesture-trail-dot {
+  position: fixed;
+  z-index: 69;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #22d3ee;
+  box-shadow: 0 0 14px rgba(34, 211, 238, 0.55);
+  opacity: 0;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  animation: gesture-trail 0.72s ease-out forwards;
+}
+
+@keyframes gesture-pulse {
+  from {
+    opacity: 0.85;
+    transform: scale(0.72);
+  }
+  to {
+    opacity: 0;
+    transform: scale(1.75);
+  }
+}
+
+@keyframes gesture-trail {
+  from {
+    opacity: 0.85;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.15);
+  }
+}
+
+@media (max-width: 760px) {
+  .gesture-open-button {
+    right: 14px;
+    top: 74px;
+    min-height: 38px;
+    padding: 0 13px;
+  }
+
+  .gesture-permission,
+  .gesture-hud {
+    left: 14px;
+    right: 14px;
+    width: auto;
+  }
+
+  .gesture-privacy-list,
+  .gesture-guide-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .camera-preview {
+    width: 136px;
+    top: 190px;
+  }
+
+  .gesture-tutorial {
+    left: 14px;
+    right: 14px;
+    width: auto;
+  }
+}
+
 .solar-shell button,
 .solar-shell input {
   font: inherit;

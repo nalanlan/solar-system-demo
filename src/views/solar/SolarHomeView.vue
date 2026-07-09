@@ -1,16 +1,31 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ChevronDown, ChevronRight, Orbit, Rocket, Sparkles } from 'lucide-vue-next'
+import GestureControlOverlay from '@/components/solar/GestureControlOverlay.vue'
 import SolarSystem3D from '@/components/solar/SolarSystem3D.vue'
 import { planets, featuredMetrics, type PlanetId } from '@/data/solar'
 
 const router = useRouter()
 const selectedId = ref<PlanetId>('earth')
+const solarScene = ref<InstanceType<typeof SolarSystem3D> | null>(null)
+const selectedPlanet = computed(() => planets.find(planet => planet.id === selectedId.value) || planets[2])
 
 function openPlanet(id: PlanetId) {
   selectedId.value = id
   router.push(`/solar/overview`)
+}
+
+function nextPlanet(direction: 1 | -1) {
+  const index = planets.findIndex(planet => planet.id === selectedId.value)
+  const next = planets[(index + direction + planets.length) % planets.length]
+  selectedId.value = next.id
+  solarScene.value?.gestureFocus(next.id)
+}
+
+function handleGesturePinch(point: { x: number; y: number }) {
+  const id = solarScene.value?.gesturePinch(point.x, point.y)
+  if (id) router.push(`/solar/planet/${id}`)
 }
 </script>
 
@@ -18,12 +33,23 @@ function openPlanet(id: PlanetId) {
   <main class="solar-page home-page">
     <section class="hero-section hero-3d">
       <SolarSystem3D
+        ref="solarScene"
         mode="hero"
         :selected-id="selectedId"
         :speed-multiplier="2.4"
         :show-labels="true"
         @select="openPlanet"
         @hover="id => id && (selectedId = id)"
+      />
+      <GestureControlOverlay
+        :selected-name="selectedPlanet.name"
+        @move="point => solarScene?.gestureMove(point.x, point.y)"
+        @pinch="handleGesturePinch"
+        @fist="point => solarScene?.gestureBurst(point.x, point.y)"
+        @swipe-prev="nextPlanet(-1)"
+        @swipe-next="nextPlanet(1)"
+        @zoom="delta => solarScene?.gestureZoom(delta)"
+        @rotate="delta => solarScene?.gestureRotate(delta)"
       />
       <div class="hero-overlay"></div>
 
