@@ -24,6 +24,17 @@
 - Tailwind CSS
 - lucide-vue-next
 
+## 提示词文档
+
+仓库已加入团队协作用提示词文档：[PROMPTS.md](./PROMPTS.md)。
+
+文档包含两类可直接复制使用的提示词：
+
+- Product Design 提示词：用于生成太阳系科普网站的产品方案、信息架构、3D 科幻视觉规范和交互设计。
+- Codex 开发提示词：用于指导 Codex 基于设计方案开发独立的可运行前端 Demo。
+
+同时包含交付检查清单，方便同事按页面、3D 效果、工程结构和 GitHub 仓库边界进行验收。
+
 ## 页面
 
 - `/solar`：首页 3D Hero
@@ -79,7 +90,3 @@ solar-system-demo/
 ├─ package.json
 └─ vite.config.ts
 ```
-
-## 说明
-
-这个仓库只包含太阳系科普 Demo 相关代码与资源，不包含二供平台的接口、mock、报表、运维页面或业务文档。
