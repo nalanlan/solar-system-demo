@@ -26,6 +26,7 @@ export interface Planet {
   label: string
   category: string
   color: string
+  motion: PlanetMotion
   image: string
   distance: string
   orbit: string
@@ -38,6 +39,16 @@ export interface Planet {
   surface: string
   exploration: string
   funFact: string
+}
+
+export interface PlanetMotion {
+  radius: number
+  orbitRadius: number
+  realOrbitRadius: number
+  orbitSpeed: number
+  rotationSpeed: number
+  axialTilt: number
+  initialAngle: number
 }
 
 export const solarAssets = {
@@ -53,6 +64,7 @@ export const planets: Planet[] = [
     label: '最近太阳',
     category: '类地行星',
     color: '#a8b3c7',
+    motion: { radius: 0.18, orbitRadius: 1.7, realOrbitRadius: 1.35, orbitSpeed: 0.84, rotationSpeed: 0.26, axialTilt: 0.03, initialAngle: 0.6 },
     image: mercuryImage,
     distance: '约 5790 万 km',
     orbit: '约 88 天',
@@ -74,6 +86,7 @@ export const planets: Planet[] = [
     label: '最热行星',
     category: '类地行星',
     color: '#f2b35b',
+    motion: { radius: 0.26, orbitRadius: 2.35, realOrbitRadius: 2.15, orbitSpeed: 0.58, rotationSpeed: 0.18, axialTilt: 3.09, initialAngle: 1.42 },
     image: venusImage,
     distance: '约 1.082 亿 km',
     orbit: '约 225 天',
@@ -95,6 +108,7 @@ export const planets: Planet[] = [
     label: '生命家园',
     category: '类地行星',
     color: '#3fc7ff',
+    motion: { radius: 0.29, orbitRadius: 3.05, realOrbitRadius: 3.1, orbitSpeed: 0.42, rotationSpeed: 0.34, axialTilt: 0.41, initialAngle: 2.24 },
     image: earthImage,
     distance: '约 1.496 亿 km',
     orbit: '约 365.25 天',
@@ -116,6 +130,7 @@ export const planets: Planet[] = [
     label: '红色星球',
     category: '类地行星',
     color: '#f06d42',
+    motion: { radius: 0.25, orbitRadius: 3.75, realOrbitRadius: 4.25, orbitSpeed: 0.35, rotationSpeed: 0.3, axialTilt: 0.44, initialAngle: 3.06 },
     image: marsImage,
     distance: '约 2.279 亿 km',
     orbit: '约 687 天',
@@ -137,6 +152,7 @@ export const planets: Planet[] = [
     label: '最大行星',
     category: '气态巨行星',
     color: '#d7b17b',
+    motion: { radius: 0.58, orbitRadius: 5.25, realOrbitRadius: 7.1, orbitSpeed: 0.18, rotationSpeed: 0.62, axialTilt: 0.05, initialAngle: 3.88 },
     image: jupiterImage,
     distance: '约 7.785 亿 km',
     orbit: '约 11.86 年',
@@ -158,6 +174,7 @@ export const planets: Planet[] = [
     label: '光环之王',
     category: '气态巨行星',
     color: '#f3d08c',
+    motion: { radius: 0.52, orbitRadius: 6.55, realOrbitRadius: 9.4, orbitSpeed: 0.14, rotationSpeed: 0.48, axialTilt: 0.47, initialAngle: 4.7 },
     image: saturnImage,
     distance: '约 14.3 亿 km',
     orbit: '约 29.45 年',
@@ -179,6 +196,7 @@ export const planets: Planet[] = [
     label: '冰巨星',
     category: '冰巨星',
     color: '#7ee2ea',
+    motion: { radius: 0.38, orbitRadius: 7.65, realOrbitRadius: 11.4, orbitSpeed: 0.1, rotationSpeed: 0.22, axialTilt: 1.71, initialAngle: 5.52 },
     image: uranusImage,
     distance: '约 28.7 亿 km',
     orbit: '约 84 年',
@@ -200,6 +218,7 @@ export const planets: Planet[] = [
     label: '远方蓝星',
     category: '冰巨星',
     color: '#3d68ff',
+    motion: { radius: 0.39, orbitRadius: 8.75, realOrbitRadius: 13.2, orbitSpeed: 0.078, rotationSpeed: 0.24, axialTilt: 0.49, initialAngle: 6.34 },
     image: neptuneImage,
     distance: '约 45.0 亿 km',
     orbit: '约 164.8 年',

@@ -24,6 +24,8 @@ type Landmark = {
   z?: number
 }
 
+type GestureType = 'none' | 'pointer' | 'pinch' | 'open-palm' | 'fist' | 'swipe' | 'zoom'
+
 const props = withDefaults(
   defineProps<{
     compact?: boolean
@@ -61,16 +63,25 @@ const canvasRef = ref<HTMLCanvasElement | null>(null)
 
 let stream: MediaStream | null = null
 let rafId = 0
-let detector: any = null
+let detector: import('@mediapipe/tasks-vision').HandLandmarker | null = null
 let lastVideoTime = -1
-let lastPinchAt = 0
+let lastDetectionAt = 0
+let pinchLatched = false
+let fistStableFrames = 0
+let openPalmStableFrames = 0
 let lastFistAt = 0
 let lastSwipeAt = 0
-let lastDeepScanAt = 0
 let lastPalmX: number | null = null
 let lastTwoFingerDistance: number | null = null
+let swipeStartX: number | null = null
+let swipeStartAt = 0
+let activeGesture: GestureType = 'none'
 let demoStep = 0
 let demoStart = 0
+let drawWidth = 0
+let drawHeight = 0
+
+const detectionInterval = 1000 / 24
 
 const statusText = computed(() => {
   if (mode.value === 'off') return '鼠标控制模式'
@@ -109,9 +120,11 @@ function openPermissionPanel() {
 }
 
 async function startRealMode() {
+  if (stream || mode.value === 'real') return
   permissionError.value = ''
-  stopDemo()
+  stopAllLoops()
   try {
+    if (!navigator.mediaDevices?.getUserMedia) throw new Error('media-devices-unavailable')
     stream = await navigator.mediaDevices.getUserMedia({
       video: {
         width: { ideal: 480 },
@@ -128,12 +141,17 @@ async function startRealMode() {
       await videoRef.value.play()
     }
     await initDetector()
+    if (!detector) throw new Error('detector-unavailable')
+    lastVideoTime = -1
+    lastDetectionAt = 0
+    lastFistAt = 0
+    lastSwipeAt = 0
     rafId = requestAnimationFrame(detectFrame)
-  } catch (error) {
-    permissionError.value = '摄像头不可用，已回到鼠标控制'
+  } catch {
+    permissionError.value = '摄像头或手势模型不可用，请重试或使用演示模式。'
     gestureName.value = '未开启'
     stopRealMode()
-    setMode('off')
+    setMode('permission')
   }
 }
 
@@ -142,7 +160,7 @@ async function initDetector() {
   try {
     const vision = await import('@mediapipe/tasks-vision')
     const filesetResolver = await vision.FilesetResolver.forVisionTasks(
-      'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.22/wasm'
+      'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/wasm'
     )
     detector = await vision.HandLandmarker.createFromOptions(filesetResolver, {
       baseOptions: {
@@ -153,9 +171,9 @@ async function initDetector() {
       runningMode: 'VIDEO',
       numHands: 1
     })
-  } catch (error) {
-    permissionError.value = '手势模型加载失败，可使用演示模式'
+  } catch {
     detector = null
+    throw new Error('hand-landmarker-load-failed')
   }
 }
 
@@ -167,17 +185,20 @@ function detectFrame() {
     return
   }
 
-  if (video.currentTime !== lastVideoTime) {
+  const now = performance.now()
+  if (video.currentTime !== lastVideoTime && now - lastDetectionAt >= detectionInterval) {
     lastVideoTime = video.currentTime
-    const result = detector.detectForVideo(video, performance.now())
-    const hand = result.landmarks?.[0] as Landmark[] | undefined
-    drawSkeleton(hand)
-    if (hand) handleLandmarks(hand)
-    else {
-      cursor.value.visible = false
-      gestureName.value = '未检测到手部'
-      confidence.value = 0
-      emit('scan', false)
+    lastDetectionAt = now
+    try {
+      const result = detector.detectForVideo(video, now)
+      const hand = result.landmarks?.[0] as Landmark[] | undefined
+      drawSkeleton(hand)
+      if (hand) handleLandmarks(hand)
+      else handleNoHand()
+    } catch {
+      permissionError.value = '手势识别暂时中断，请重试或切换演示模式。'
+      stopRealMode()
+      setMode('permission')
     }
   }
 
@@ -190,8 +211,14 @@ function drawSkeleton(hand?: Landmark[]) {
   if (!canvas || !video) return
   const ctx = canvas.getContext('2d')
   if (!ctx) return
-  canvas.width = video.clientWidth || 176
-  canvas.height = video.clientHeight || 112
+  const nextWidth = video.clientWidth || 176
+  const nextHeight = video.clientHeight || 112
+  if (drawWidth !== nextWidth || drawHeight !== nextHeight) {
+    drawWidth = nextWidth
+    drawHeight = nextHeight
+    canvas.width = drawWidth
+    canvas.height = drawHeight
+  }
   ctx.clearRect(0, 0, canvas.width, canvas.height)
   if (!hand) return
 
@@ -224,6 +251,35 @@ function distance(a: Landmark, b: Landmark) {
   return Math.hypot(a.x - b.x, a.y - b.y)
 }
 
+function resetGestureState() {
+  pinchLatched = false
+  fistStableFrames = 0
+  openPalmStableFrames = 0
+  lastPalmX = null
+  lastTwoFingerDistance = null
+  swipeStartX = null
+  swipeStartAt = 0
+  activeGesture = 'none'
+}
+
+function handleNoHand() {
+  cursor.value.visible = false
+  gestureName.value = '未检测到手部'
+  confidence.value = 0
+  emit('scan', false)
+  resetGestureState()
+}
+
+function setActiveGesture(next: GestureType) {
+  activeGesture = next
+  if (next === 'open-palm') gestureName.value = '扫描模式'
+  else if (next === 'fist') gestureName.value = '握拳爆炸'
+  else if (next === 'pinch') gestureName.value = '捏合选择'
+  else if (next === 'zoom') gestureName.value = '双指缩放'
+  else if (next === 'swipe') gestureName.value = '挥手切换'
+  else gestureName.value = '食指光标'
+}
+
 function handleLandmarks(hand: Landmark[]) {
   const now = performance.now()
   const indexTip = hand[8]
@@ -237,11 +293,14 @@ function handleLandmarks(hand: Landmark[]) {
   const palmX = (1 - wrist.x) * window.innerWidth
   const pinchDistance = distance(indexTip, thumbTip)
   const twoFingerDistance = distance(indexTip, middleTip)
-  const averageTipDistance = tips.reduce((sum, tip) => sum + distance(tip, wrist), 0) / tips.length
-  const isFist = averageTipDistance < 0.23
-  const isOpenPalm = averageTipDistance > 0.34 && pinchDistance > 0.08
+  const palmScale = Math.max(distance(wrist, hand[9]), 0.04)
+  const pinchRatio = pinchDistance / palmScale
+  const averageTipRatio = tips.reduce((sum, tip) => sum + distance(tip, wrist) / palmScale, 0) / tips.length
+  const isFistCandidate = averageTipRatio < 2.15
+  const isOpenPalmCandidate = averageTipRatio > 3.15 && pinchRatio > 0.72
+  const isTwoFingerCandidate = twoFingerDistance / palmScale > 0.9 && !isOpenPalmCandidate && !isFistCandidate
 
-  confidence.value = Math.min(0.98, Math.max(0.62, averageTipDistance * 2.35))
+  confidence.value = Math.min(0.98, Math.max(0.62, Math.min(1, averageTipRatio / 4)))
   updateCursor(screenX, screenY)
 
   if (confidence.value < 0.68) {
@@ -249,51 +308,72 @@ function handleLandmarks(hand: Landmark[]) {
     return
   }
 
-  if (pinchDistance < 0.055 && now - lastPinchAt > 520) {
-    lastPinchAt = now
-    gestureName.value = '捏合选择'
-    emit('pinch', { x: cursor.value.x, y: cursor.value.y })
-    pulseCursor()
+  if (pinchRatio < 0.5) {
+    if (!pinchLatched) {
+      pinchLatched = true
+      setActiveGesture('pinch')
+      emit('pinch', { x: cursor.value.x, y: cursor.value.y })
+      pulseCursor()
+    }
+    lastPalmX = palmX
+    lastTwoFingerDistance = null
     return
   }
+  if (pinchLatched && pinchRatio > 0.72) pinchLatched = false
 
-  if (isFist && now - lastFistAt > 1200) {
+  if (isFistCandidate) fistStableFrames += 1
+  else fistStableFrames = 0
+  if (fistStableFrames >= 5 && now - lastFistAt > 1200) {
     lastFistAt = now
-    gestureName.value = '握拳爆炸'
+    setActiveGesture('fist')
     emit('fist', { x: cursor.value.x, y: cursor.value.y })
     pulseCursor()
     return
   }
 
-  if (lastPalmX !== null && now - lastSwipeAt > 1050) {
-    const deltaX = palmX - lastPalmX
-    if (Math.abs(deltaX) > 84) {
-      lastSwipeAt = now
-      gestureName.value = '挥手切换'
-      if (deltaX > 0) emit('swipeNext')
-      else emit('swipePrev')
-      lastPalmX = palmX
-      return
-    }
+  openPalmStableFrames = isOpenPalmCandidate ? openPalmStableFrames + 1 : 0
+  const palmReady = openPalmStableFrames >= 4
+  if (swipeStartX === null) {
+    swipeStartX = palmX
+    swipeStartAt = now
+  }
+  const swipeDistance = palmX - swipeStartX
+  const swipeDuration = now - swipeStartAt
+  if (Math.abs(swipeDistance) > 120 && swipeDuration < 700 && now - lastSwipeAt > 1050) {
+    lastSwipeAt = now
+    setActiveGesture('swipe')
+    if (swipeDistance > 0) emit('swipeNext')
+    else emit('swipePrev')
+    swipeStartX = palmX
+    swipeStartAt = now
+    lastPalmX = palmX
+    lastTwoFingerDistance = null
+    return
   }
 
-  if (isOpenPalm) {
-    gestureName.value = '扫描模式'
+  if (palmReady) {
+    setActiveGesture('open-palm')
     emit('scan', true)
-    if (lastPalmX !== null) emit('rotate', palmX - lastPalmX)
-    if (now - lastDeepScanAt > 1000) lastDeepScanAt = now
-  } else {
+    if (lastPalmX !== null) emit('rotate', clampDelta(palmX - lastPalmX))
+  } else if (isTwoFingerCandidate) {
+    setActiveGesture('zoom')
     emit('scan', false)
-    gestureName.value = '食指光标'
-  }
-
-  if (lastTwoFingerDistance !== null && Math.abs(twoFingerDistance - lastTwoFingerDistance) > 0.018) {
-    gestureName.value = '双指缩放'
-    emit('zoom', (twoFingerDistance - lastTwoFingerDistance) * 260)
+    const currentDistance = twoFingerDistance / palmScale
+    if (lastTwoFingerDistance !== null && Math.abs(currentDistance - lastTwoFingerDistance) > 0.045) {
+      emit('zoom', Math.max(-36, Math.min(36, (currentDistance - lastTwoFingerDistance) * 34)))
+    }
+    lastTwoFingerDistance = currentDistance
+  } else {
+    setActiveGesture('pointer')
+    emit('scan', false)
+    lastTwoFingerDistance = null
   }
 
   lastPalmX = palmX
-  lastTwoFingerDistance = twoFingerDistance
+}
+
+function clampDelta(value: number) {
+  return Math.max(-18, Math.min(18, value))
 }
 
 function pulseCursor() {
@@ -303,6 +383,8 @@ function pulseCursor() {
 
 function startDemoMode() {
   stopRealMode()
+  lastFistAt = 0
+  lastSwipeAt = 0
   setMode('demo')
   gestureName.value = '演示模式'
   confidence.value = 1
@@ -349,15 +431,26 @@ function runDemo(now: number) {
 }
 
 function stopDemo() {
-  if (mode.value === 'demo') cancelAnimationFrame(rafId)
+  cancelAnimationFrame(rafId)
+  rafId = 0
+}
+
+function stopAllLoops() {
+  cancelAnimationFrame(rafId)
+  emit('scan', false)
 }
 
 function stopRealMode() {
   cancelAnimationFrame(rafId)
+  rafId = 0
   stream?.getTracks().forEach(track => track.stop())
   stream = null
   if (videoRef.value) videoRef.value.srcObject = null
   cursor.value.visible = false
+  trail.value = []
+  resetGestureState()
+  lastVideoTime = -1
+  lastDetectionAt = 0
   emit('scan', false)
 }
 
@@ -394,6 +487,7 @@ onBeforeUnmount(() => {
       <p class="panel-label">AI GESTURE CONTROL</p>
       <h3>开启视觉手势控制</h3>
       <p>摄像头仅用于本地识别手部关键点，不上传、不保存、不截图画面。你可以随时关闭并回到鼠标控制。</p>
+      <p v-if="permissionError" class="gesture-error">{{ permissionError }}</p>
       <div class="gesture-privacy-list">
         <span><ShieldCheck :size="16" /> 本地识别</span>
         <span><Camera :size="16" /> 需要摄像头授权</span>
